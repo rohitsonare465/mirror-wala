@@ -1,0 +1,446 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// 1. BETTER AUTHENTICATION & ACCESS CONTROL
+// ==========================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPPORT
+}
+
+model User {
+  id            String    @id @map("_id")
+  name          String
+  email         String    @unique
+  password      String?   // Hashed credentials fallback
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          UserRole  @default(USER)
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Security Relationships (Better Auth compatibility)
+  sessions      Session[]
+  accounts      Account[]
+  
+  // Profile & Transact Relationships
+  addresses     Address[]
+  orders        Order[]
+  wishlist      Wishlist[]
+  reviews       Review[]
+  cart          Cart?
+  adminProfile  Admin?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @map("_id")
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id           String    @id @map("_id")
+  userId       String
+  accountId    String
+  providerId   String
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  password     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @map("_id")
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+model Address {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  phone       String
+  addressLine String
+  city        String
+  state       String
+  country     String   @default("India")
+  pincode     String
+  isDefault   Boolean  @default(false)
+  
+  orders      Order[]  // Tracks delivery snapshot targets
+
+  @@map("addresses")
+}
+
+model Admin {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("SUPER_ADMIN") // e.g. "SUPER_ADMIN", "CATALOG_MANAGER", "ORDER_STAFF"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// ==========================================
+// 2. PRODUCT CATALOG & MANAGEMENT
+// ==========================================
+
+model Category {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String    @unique
+  image       String?   // Category picture banner url
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+
+  @@map("categories")
+}
+
+enum MirrorShape {
+  RECTANGULAR
+  ROUND
+  OVAL
+  ARCHED
+  HEXAGONAL
+  CUSTOM
+}
+
+enum LedColorType {
+  NONE
+  WARM_WHITE
+  NATURAL_WHITE
+  COOL_WHITE
+  TRI_COLOR
+  RGB
+}
+
+enum GlassEdgeStyle {
+  POLISHED
+  BEVELED
+  FROSTED
+}
+
+enum SmartFeatureType {
+  TOUCH_SENSOR
+  HAND_WAVE_SENSOR
+  DEFOGGER
+  DIGITAL_CLOCK
+  BLUETOOTH_SPEAKER
+  DIMMING
+}
+
+model Product {
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  slug             String             @unique
+  description      String
+  shortDescription String?
+  sku              String             @unique
+  price            Float
+  salePrice        Float?
+  stock            Int                @default(0)
+  categoryId       String             @db.ObjectId
+  category         Category           @relation(fields: [categoryId], references: [id])
+  featured         Boolean            @default(false)
+  newArrival       Boolean            @default(true)
+  images           String[]           // Array of Cloudinary Image URLs
+  
+  // Custom Mirror Configuration restrictions & attributes
+  LEDType          LedColorType       @default(NONE)
+  frameMaterial    String?            // e.g. "Aluminum", "Champagne Wood", "Frameless"
+  dimensions       String?            // Size bounds description, e.g. "600x800mm, 800x1200mm"
+  
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  
+  // Relationships
+  reviews          Review[]
+  orderItems       OrderItem[]
+  cartItems        CartItem[]
+  wishlists        Wishlist[]
+  variants         ProductVariant[]   // Multi-size explicit pricing catalog layout
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String   @unique
+  width     Int      // mm
+  height    Int      // mm
+  price     Float
+  salePrice Float?
+  stock     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_variants")
+}
+
+// ==========================================
+// 3. SHOPPING CART & WISHLIST
+// ==========================================
+
+model Cart {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?    @unique // Nullable to support guest checkout carts
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  
+  items     CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  cartId               String   @db.ObjectId
+  cart                 Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId            String   @db.ObjectId
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity             Int      @default(1)
+  customizationDetails String?  // JSON stringified properties: led color, shape, edge type, size, features
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("cart_items")
+}
+
+model Wishlist {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+// ==========================================
+// 4. TRANSACTION & ORDER PROCESS
+// ==========================================
+
+enum OrderStatus {
+  Pending
+  Confirmed
+  Processing
+  Packed
+  OutForDelivery
+  Delivered
+  Cancelled
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  COD
+}
+
+model Coupon {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  code          String   @unique
+  discountType  String   // 'PERCENTAGE' or 'FIXED'
+  discountValue Float
+  minOrderValue Float?
+  maxDiscount   Float?
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  orders        Order[]
+
+  @@map("coupons")
+}
+
+model Order {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String?
+  user              User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderNumber       String        @unique
+  totalAmount       Float
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus @default(PENDING)
+  orderStatus       OrderStatus   @default(Pending)
+  
+  shippingAddressId String?       @db.ObjectId
+  shippingAddress   Address?      @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
+  
+  // Custom mirror items & prices
+  items             OrderItem[]
+  payment           Payment?
+  couponId          String?       @db.ObjectId
+  coupon            Coupon?       @relation(fields: [couponId], references: [id])
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId              String   @db.ObjectId
+  order                Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId            String   @db.ObjectId
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productName          String
+  quantity             Int
+  price                Float
+  totalPrice           Float
+  customizationDetails String?  // JSON string snapshot of size, edges, LEDs
+
+  @@map("order_items")
+}
+
+model Payment {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderId          String        @unique @db.ObjectId
+  order            Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentGatewayId String?       // Razorpay reference ID
+  amount           Float
+  status           PaymentStatus @default(PENDING)
+  method           PaymentMethod
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+// ==========================================
+// 5. CUSTOM LEADS & CONTENT MANAGEMENT
+// ==========================================
+
+model Review {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId  String   @db.ObjectId
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating     Int      // 1 to 5 Stars
+  title      String?
+  comment    String
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("reviews")
+}
+
+enum EnquiryType {
+  GENERAL
+  CUSTOM_QUOTE
+  BULK_ORDER
+  COLLABORATION
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  CONVERTED
+  CLOSED
+}
+
+model Enquiry {
+  id                String             @id @default(auto()) @map("_id") @db.ObjectId
+  type              EnquiryType        @default(GENERAL)
+  fullName          String
+  email             String
+  phone             String
+  subject           String
+  message           String
+  status            EnquiryStatus      @default(NEW)
+  adminNotes        String?
+  
+  // Bespoke Configurator Snapshot properties
+  shape             MirrorShape?
+  width             Int?               // Requested Custom width (mm)
+  height            Int?               // Requested Custom height (mm)
+  thickness         Int?               // Requested Custom glass thickness (mm)
+  edgeStyle         GlassEdgeStyle?
+  ledColor          LedColorType?
+  features          SmartFeatureType[]
+  imageUrlReference String?            // Client inspiration drawing / schematic design
+  estimatedPrice    Float?
+  
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@map("enquiries")
+}
+
+model Gallery {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  imageUrl    String   // Cloudinary Image URL
+  tags        String[] // E.g., ["LED Mirror", "Bathroom Vanity"]
+  isFeatured  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("gallery")
+}
+
+model HomepageContent {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique // e.g. "hero_section", "promotions"
+  value     Json     // JSON data containing slider titles, banners, links
+  updatedAt DateTime @updatedAt
+
+  @@map("homepage_contents")
+}
