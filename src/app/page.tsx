@@ -19,7 +19,7 @@ export default async function Home() {
       testimonials = (cmsContent.value as any).testimonials || [];
     }
   } catch (error) {
-    console.error('Failed to load testimonials from database:', error);
+    console.warn('⚠️ Note: Database is unreachable or offline. Homepage testimonials will fall back to empty.');
   }
 
   return (
