@@ -1,5 +1,6 @@
 import { CartRepository } from '../lib/repositories/cart.repository';
 import { cartItemSchema } from '../validations/order';
+import prisma from '../lib/prisma';
 
 export class CartService {
   private cartRepository: CartRepository;
@@ -43,6 +44,14 @@ export class CartService {
     
     // Validate request inputs using Checkout pipeline validation subsets
     const validated = cartItemSchema.parse(itemData);
+
+    // Validate product existence first before adding
+    const productExists = await prisma.product.findUnique({
+      where: { id: validated.productId },
+    });
+    if (!productExists) {
+      throw new Error(`Product not found in catalog: ${validated.productId}`);
+    }
 
     return this.cartRepository.addItem(cartId, {
       productId: validated.productId,
@@ -95,11 +104,23 @@ export class CartService {
 
     // Merge each item from guest cart to user cart
     for (const item of guestCart.items) {
-      await this.cartRepository.addItem(userCart.id, {
-        productId: item.productId,
-        quantity: item.quantity,
-        customizationDetails: item.customizationDetails || undefined,
-      });
+      try {
+        const productExists = await prisma.product.findUnique({
+          where: { id: item.productId },
+        });
+        if (!productExists) {
+          console.warn(`⚠️ Skipping stale product ID in guest cart merge: ${item.productId}`);
+          continue;
+        }
+
+        await this.cartRepository.addItem(userCart.id, {
+          productId: item.productId,
+          quantity: item.quantity,
+          customizationDetails: item.customizationDetails || undefined,
+        });
+      } catch (err) {
+        console.error(`Failed to merge guest cart item: ${item.productId}`, err);
+      }
     }
 
     // Clean up the guest cart

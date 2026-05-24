@@ -23,8 +23,11 @@ export default function CheckoutPage() {
     getDiscountAmount,
     getTaxAmount,
     getTotalAmount,
-    clearCart
+    clearCart,
+    removeItem
   } = useCartStore();
+
+  const [mounted, setMounted] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -45,6 +48,10 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [orderPlacedSuccess, setOrderPlacedSuccess] = useState<any>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Autofill if user is logged in
   useEffect(() => {
@@ -243,6 +250,20 @@ export default function CheckoutPage() {
         rzp.open();
       }
     } catch (err: any) {
+      // Self-healing checkout for stale product IDs
+      if (err.message && err.message.includes('Product not found in catalog:')) {
+        const parts = err.message.split('Product not found in catalog:');
+        const invalidProductId = parts[1]?.trim();
+        if (invalidProductId) {
+          const storeItem = items.find(i => i.productId === invalidProductId || i.product.id === invalidProductId);
+          if (storeItem) {
+            removeItem(storeItem.id);
+            setSubmitError(`The product "${storeItem.product.name}" is currently unavailable and has been removed from your cart. Please try checking out again.`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
       setSubmitError(err.message || 'An error occurred during checkout processing.');
     } finally {
       setIsSubmitting(false);
@@ -310,17 +331,23 @@ export default function CheckoutPage() {
     <PublicLayout>
       <section className="bg-stone-950 py-12 md:py-20 font-sans text-stone-300">
         <div className="container mx-auto px-4 md:px-8 max-w-6xl">
-          {/* Header Link Back */}
-          <div className="flex items-center gap-1.5 mb-8">
-            <button
-              onClick={() => router.push('/cart')}
-              className="flex items-center gap-1 text-xs text-stone-500 hover:text-amber-200 transition-colors uppercase tracking-widest font-bold"
-            >
-              <ChevronLeft className="h-4 w-4" /> Back to Cart
-            </button>
-          </div>
+          {!mounted ? (
+            <div className="text-center py-20 bg-stone-900/40 rounded border border-stone-850 flex flex-col items-center justify-center gap-4">
+              <span className="text-stone-500 text-xs">Loading secure showroom checkout...</span>
+            </div>
+          ) : (
+            <>
+              {/* Header Link Back */}
+              <div className="flex items-center gap-1.5 mb-8">
+                <button
+                  onClick={() => router.push('/cart')}
+                  className="flex items-center gap-1 text-xs text-stone-500 hover:text-amber-200 transition-colors uppercase tracking-widest font-bold"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Back to Cart
+                </button>
+              </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             
             {/* Form details input container (7 Cols) */}
             <form onSubmit={handleSubmitOrder} className="lg:col-span-7 flex flex-col gap-6">
@@ -642,6 +669,8 @@ export default function CheckoutPage() {
             </div>
 
           </div>
+          </>
+          )}
         </div>
       </section>
     </PublicLayout>

@@ -23,10 +23,15 @@ export default function CartPage() {
     getTotalAmount
   } = useCartStore();
 
+  const [mounted, setMounted] = useState(false);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponError, setCouponError] = useState('');
   const [couponSuccess, setCouponSuccess] = useState('');
   const [pincode, setPincode] = useState('');
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   const [shippingEstimate, setShippingEstimate] = useState<string | null>(null);
 
   const handleApplyCoupon = async () => {
@@ -116,7 +121,11 @@ export default function CartPage() {
       {/* Cart Content Viewport */}
       <section className="bg-stone-950 py-12 text-stone-300 font-sans flex-1">
         <div className="container mx-auto px-4 md:px-8 max-w-5xl">
-          {items.length === 0 ? (
+          {!mounted ? (
+            <div className="text-center py-20 bg-stone-900/40 rounded border border-stone-850 flex flex-col items-center justify-center gap-4">
+              <span className="text-stone-500 text-xs">Loading luxury showroom cart...</span>
+            </div>
+          ) : items.length === 0 ? (
             <div className="text-center py-20 bg-stone-900/40 rounded border border-stone-850 flex flex-col items-center gap-6">
               <span className="text-stone-500 text-sm">Your shopping cart is currently empty.</span>
               <Link

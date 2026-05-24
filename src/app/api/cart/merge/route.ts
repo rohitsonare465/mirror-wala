@@ -23,14 +23,18 @@ export async function POST(req: Request) {
 
     if (items && Array.isArray(items) && items.length > 0) {
       for (const item of items) {
-        // Map customization to a string if it's an object
-        const customizationStr = item.customization ? JSON.stringify(item.customization) : undefined;
-        
-        await cartService.addItemToCart(userCart.id, {
-          productId: item.productId,
-          quantity: item.quantity,
-          customizationDetails: customizationStr,
-        });
+        try {
+          // Map customization to a string if it's an object
+          const customizationStr = item.customization ? JSON.stringify(item.customization) : undefined;
+          
+          await cartService.addItemToCart(userCart.id, {
+            productId: item.productId,
+            quantity: item.quantity,
+            customizationDetails: customizationStr,
+          });
+        } catch (itemErr) {
+          console.warn(`⚠️ Failed to merge guest item ${item.productId}:`, itemErr);
+        }
       }
     }
 

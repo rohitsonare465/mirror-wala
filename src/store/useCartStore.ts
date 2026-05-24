@@ -27,7 +27,12 @@ interface CartState {
 }
 
 // Map MongoDB database CartItem + Product to Zustand CartItem structure
-const mapDbCartItemToZustand = (dbItem: any): CartItem => {
+const mapDbCartItemToZustand = (dbItem: any): CartItem | null => {
+  if (!dbItem || !dbItem.product) {
+    console.warn('⚠️ Stale or deleted product detected in database cart item, skipping.');
+    return null;
+  }
+
   let customization = null;
   if (dbItem.customizationDetails) {
     try {
@@ -142,7 +147,7 @@ export const useCartStore = create<CartState>()(
               .then(res => res.json())
               .then(json => {
                 if (json.success && json.data) {
-                  const mapped = json.data.items.map(mapDbCartItemToZustand);
+                  const mapped = json.data.items.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
                   set({ items: mapped });
                 }
               })
@@ -167,7 +172,7 @@ export const useCartStore = create<CartState>()(
               .then(res => res.json())
               .then(json => {
                 if (json.success && json.data) {
-                  const mapped = json.data.items.map(mapDbCartItemToZustand);
+                  const mapped = json.data.items.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
                   set({ items: mapped });
                 }
               })
@@ -201,7 +206,7 @@ export const useCartStore = create<CartState>()(
               .then(res => res.json())
               .then(json => {
                 if (json.success && json.data) {
-                  const mapped = json.data.items.map(mapDbCartItemToZustand);
+                  const mapped = json.data.items.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
                   set({ items: mapped });
                 }
               })
@@ -243,7 +248,7 @@ export const useCartStore = create<CartState>()(
             const json = await res.json();
             if (json.success && json.data) {
               const dbItems = json.data.items || [];
-              const mappedItems = dbItems.map(mapDbCartItemToZustand);
+              const mappedItems = dbItems.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
               set({ items: mappedItems });
             }
           }
@@ -272,7 +277,7 @@ export const useCartStore = create<CartState>()(
               const json = await res.json();
               if (json.success && json.data) {
                 const dbItems = json.data.items || [];
-                const mappedItems = dbItems.map(mapDbCartItemToZustand);
+                const mappedItems = dbItems.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
                 set({ items: mappedItems, coupon: null });
               }
             } else {
