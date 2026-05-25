@@ -230,10 +230,26 @@ export default function ProductsClient({ initialProducts, categories }: Products
       }
 
       if (editingProduct) {
-        await updateProductAction(editingProduct.id, payload);
+        const response = await fetch(`/api/admin/products/${editingProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to update product');
+        }
         toast.success(`Successfully updated ${formData.name}`, 'Product Updated');
       } else {
-        await createProductAction(payload);
+        const response = await fetch('/api/admin/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to create product');
+        }
         toast.success(`Successfully created ${formData.name}`, 'Product Created');
       }
 
@@ -251,7 +267,13 @@ export default function ProductsClient({ initialProducts, categories }: Products
     if (!confirm(`Are you absolutely sure you want to delete "${product.name}"?`)) return;
 
     try {
-      await deleteProductAction(product.id);
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete product');
+      }
       toast.success(`${product.name} deleted successfully.`, 'Product Removed');
       router.refresh();
     } catch (err: any) {
@@ -263,7 +285,15 @@ export default function ProductsClient({ initialProducts, categories }: Products
   const handleToggleTag = async (product: Product, tag: 'featured' | 'newArrival') => {
     try {
       const nextValue = !product[tag];
-      await updateProductAction(product.id, { [tag]: nextValue });
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [tag]: nextValue }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update product tag');
+      }
       toast.success(`${product.name} updated successfully.`, 'Tag Toggled');
       router.refresh();
     } catch (err: any) {

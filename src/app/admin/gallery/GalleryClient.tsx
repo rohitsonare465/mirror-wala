@@ -73,12 +73,20 @@ export default function GalleryClient({ initialGallery }: GalleryClientProps) {
         .map(t => t.trim())
         .filter(t => t.length > 0);
 
-      await addGalleryImageAction(
-        formData.title.trim(),
-        formData.imageUrl.trim(),
-        tags,
-        formData.isFeatured
-      );
+      const response = await fetch('/api/admin/gallery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title.trim(),
+          imageUrl: formData.imageUrl.trim(),
+          tags,
+          isFeatured: formData.isFeatured,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to add gallery item');
+      }
 
       toast.success(`Showroom image "${formData.title}" added successfully.`, 'Gallery Item Added');
       setIsModalOpen(false);
@@ -95,7 +103,13 @@ export default function GalleryClient({ initialGallery }: GalleryClientProps) {
 
     setDeletingId(item.id);
     try {
-      await deleteGalleryImageAction(item.id);
+      const response = await fetch(`/api/admin/gallery/${item.id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete gallery item');
+      }
       toast.success(`Showroom image "${item.title}" deleted successfully.`, 'Gallery Item Removed');
       router.refresh();
     } catch (err: any) {

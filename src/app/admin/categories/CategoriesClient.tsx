@@ -102,10 +102,26 @@ export default function CategoriesClient({ initialCategories }: CategoriesClient
       };
 
       if (editingCategory) {
-        await updateCategoryAction(editingCategory.id, payload);
+        const response = await fetch(`/api/admin/categories/${editingCategory.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to update collection');
+        }
         toast.success(`Successfully updated ${formData.name}`, 'Collection Updated');
       } else {
-        await createCategoryAction(payload);
+        const response = await fetch('/api/admin/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to create collection');
+        }
         toast.success(`Successfully created ${formData.name}`, 'Collection Created');
       }
 
@@ -128,7 +144,13 @@ export default function CategoriesClient({ initialCategories }: CategoriesClient
     if (!confirm(`Are you sure you want to delete the collection "${category.name}"?`)) return;
 
     try {
-      await deleteCategoryAction(category.id);
+      const response = await fetch(`/api/admin/categories/${category.id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete collection');
+      }
       toast.success(`${category.name} collection successfully removed.`, 'Category Removed');
       router.refresh();
     } catch (err: any) {

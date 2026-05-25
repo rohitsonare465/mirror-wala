@@ -98,7 +98,16 @@ export default function CouponsClient({ initialCoupons }: CouponsClientProps) {
         isActive: formData.isActive,
       };
 
-      await createCouponAction(payload);
+      const response = await fetch('/api/admin/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create coupon');
+      }
+
       toast.success(`Coupon code ${payload.code} successfully registered.`, 'Voucher Added');
       setIsModalOpen(false);
       router.refresh();
@@ -114,7 +123,14 @@ export default function CouponsClient({ initialCoupons }: CouponsClientProps) {
 
     setDeletingId(coupon.id);
     try {
-      await deleteCouponAction(coupon.id);
+      const response = await fetch(`/api/admin/coupons/${coupon.id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete coupon');
+      }
+
       toast.success(`Coupon code ${coupon.code} removed from the registry.`, 'Coupon Deleted');
       router.refresh();
     } catch (err: any) {
