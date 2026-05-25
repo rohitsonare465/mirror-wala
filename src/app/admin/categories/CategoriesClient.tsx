@@ -304,7 +304,7 @@ export default function CategoriesClient({ initialCategories }: CategoriesClient
                 Close Dialog
               </button>
               <button
-                onClick={handleFormSubmit}
+                type="submit"
                 disabled={isSubmitting}
                 className="flex items-center gap-2 bg-gradient-to-r from-amber-300 to-yellow-500 text-stone-950 font-extrabold uppercase tracking-widest text-[10px] py-3 px-6 rounded-md hover:from-white hover:to-amber-200 disabled:opacity-50 transition-all duration-300 cursor-pointer shadow-lg shadow-amber-400/5"
               >

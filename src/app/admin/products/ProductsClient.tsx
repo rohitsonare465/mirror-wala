@@ -24,6 +24,7 @@ import {
 } from '@/actions/admin';
 import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/ui/FileUpload';
+import { adminProductSchema } from '@/validations/admin';
 
 interface Category {
   id: string;
@@ -218,6 +219,15 @@ export default function ProductsClient({ initialProducts, categories }: Products
         frameMaterial: formData.frameMaterial || null,
         dimensions: formData.dimensions || null,
       };
+
+      // Perform client-side Zod validation to provide user-friendly error messages
+      const validation = adminProductSchema.safeParse(payload);
+      if (!validation.success) {
+        const firstError = validation.error.errors[0]?.message || 'Validation error. Please verify input data.';
+        toast.error(firstError, 'Validation Error');
+        setIsSubmitting(false);
+        return;
+      }
 
       if (editingProduct) {
         await updateProductAction(editingProduct.id, payload);
@@ -714,7 +724,7 @@ export default function ProductsClient({ initialProducts, categories }: Products
                 Close Spec Modal
               </button>
               <button
-                onClick={handleFormSubmit}
+                type="submit"
                 disabled={isSubmitting}
                 className="flex items-center gap-2 bg-gradient-to-r from-amber-300 to-yellow-500 text-stone-950 font-extrabold uppercase tracking-widest text-[10px] py-3 px-6 rounded-md hover:from-white hover:to-amber-200 disabled:opacity-50 transition-all duration-300 cursor-pointer shadow-lg shadow-amber-400/5"
               >
