@@ -232,7 +232,7 @@ export default function GalleryClient({ initialGallery }: GalleryClientProps) {
             </div>
 
             {/* Modal Form body */}
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+            <form id="gallery-showcase-form" onSubmit={handleFormSubmit} className="p-6 space-y-4">
               
               <div className="flex flex-col gap-1.5">
                 <label className="text-[9px] uppercase tracking-wider text-stone-500 font-extrabold">Showcase Title *</label>
@@ -293,6 +293,7 @@ export default function GalleryClient({ initialGallery }: GalleryClientProps) {
               </button>
               <button
                 type="submit"
+                form="gallery-showcase-form"
                 disabled={isSubmitting}
                 className="flex items-center gap-2 bg-gradient-to-r from-amber-300 to-yellow-500 text-stone-950 font-extrabold uppercase tracking-widest text-[10px] py-3 px-6 rounded-md hover:from-white hover:to-amber-200 disabled:opacity-50 transition-all duration-300 cursor-pointer shadow-lg shadow-amber-400/5"
               >

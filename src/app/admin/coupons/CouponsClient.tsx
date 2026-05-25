@@ -281,7 +281,7 @@ export default function CouponsClient({ initialCoupons }: CouponsClientProps) {
             </div>
 
             {/* Modal Form body */}
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+            <form id="coupon-campaign-form" onSubmit={handleFormSubmit} className="p-6 space-y-4">
               
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center select-none">
@@ -405,6 +405,7 @@ export default function CouponsClient({ initialCoupons }: CouponsClientProps) {
               </button>
               <button
                 type="submit"
+                form="coupon-campaign-form"
                 disabled={isSubmitting}
                 className="flex items-center gap-2 bg-gradient-to-r from-amber-300 to-yellow-500 text-stone-950 font-extrabold uppercase tracking-widest text-[10px] py-3 px-6 rounded-md hover:from-white hover:to-amber-200 disabled:opacity-50 transition-all duration-300 cursor-pointer shadow-lg shadow-amber-400/5"
               >

@@ -545,7 +545,7 @@ export default function ProductsClient({ initialProducts, categories }: Products
             </div>
 
             {/* Modal Form body */}
-            <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+            <form id="product-spec-form" onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               
               {/* Row 1: Name and Slug */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -755,6 +755,7 @@ export default function ProductsClient({ initialProducts, categories }: Products
               </button>
               <button
                 type="submit"
+                form="product-spec-form"
                 disabled={isSubmitting}
                 className="flex items-center gap-2 bg-gradient-to-r from-amber-300 to-yellow-500 text-stone-950 font-extrabold uppercase tracking-widest text-[10px] py-3 px-6 rounded-md hover:from-white hover:to-amber-200 disabled:opacity-50 transition-all duration-300 cursor-pointer shadow-lg shadow-amber-400/5"
               >
