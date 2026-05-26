@@ -9,6 +9,8 @@ export const auth = betterAuth({
   }),
   baseURL: {
     allowedHosts: [
+      'mirrorwala.in',
+      '*.mirrorwala.in',
       'mirrorwala.com',
       '*.mirrorwala.com',
       'mirror-wala.vercel.app',
@@ -19,6 +21,8 @@ export const auth = betterAuth({
   },
 
   trustedOrigins: [
+    'https://mirrorwala.in',
+    'https://*.mirrorwala.in',
     'https://mirrorwala.com',
     'https://*.mirrorwala.com',
     'https://mirror-wala.vercel.app',
