@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 
-const AUTH_ROUTES = ['/login', '/register'];
-const PROTECTED_USER_ROUTES = ['/profile', '/orders', '/checkout', '/wishlist', '/cart'];
+const AUTH_ROUTES = ['/login', '/register', '/admin/login'];
+const PROTECTED_USER_ROUTES = ['/profile', '/orders', '/checkout', '/wishlist', '/cart', '/account'];
 const PROTECTED_ADMIN_ROUTES = ['/admin'];
 
 export async function proxy(request: NextRequest) {
@@ -18,29 +18,45 @@ export async function proxy(request: NextRequest) {
   const isProtectedUserRoute = PROTECTED_USER_ROUTES.some(route => pathname.startsWith(route));
   const isProtectedAdminRoute = PROTECTED_ADMIN_ROUTES.some(route => pathname.startsWith(route));
 
-  // 1. Guest access to profile/orders/checkout/wishlist/cart -> Redirect to Login
-  if (isProtectedUserRoute && !session) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+  // 1. Guest access to protected pages
+  if (!session) {
+    if (isProtectedAdminRoute && pathname !== '/admin/login') {
+      const adminLoginUrl = new URL('/admin/login', request.url);
+      adminLoginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(adminLoginUrl);
+    }
 
-  // 2. Already logged in -> Redirect away from Login/Register to Profile
-  if (isAuthRoute && session) {
-    return NextResponse.redirect(new URL('/profile', request.url));
-  }
-
-  // 3. Admin Route protection strictly restricting entry to role === "ADMIN"
-  if (isProtectedAdminRoute) {
-    if (!session) {
+    if (isProtectedUserRoute) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
     }
+  }
 
-    if (session.user.role !== 'ADMIN') {
-      // Forbidden: Redirect standard user back to main profile page
+  // 2. Already logged in
+  if (session) {
+    // If trying to access login/register/admin-login
+    if (isAuthRoute) {
+      if (session.user.role === 'ADMIN') {
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      }
       return NextResponse.redirect(new URL('/profile', request.url));
+    }
+
+    // 3. Admin Route protection strictly restricting entry to role === "ADMIN"
+    if (isProtectedAdminRoute && pathname !== '/admin/login') {
+      if (session.user.role !== 'ADMIN') {
+        // Forbidden: Redirect standard user back to main profile page
+        return NextResponse.redirect(new URL('/profile', request.url));
+      }
+    }
+
+    // 4. Customer Route protection (e.g. /account/*) restricting entry to role === "USER"
+    if (pathname.startsWith('/account')) {
+      if (session.user.role !== 'USER') {
+        // Redirect non-customer back to admin dashboard
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      }
     }
   }
 

@@ -28,6 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.refresh();
   };
 
+
   if (isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-950 font-sans text-xs text-stone-400">
@@ -54,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <div className="flex flex-col w-full gap-3">
             <button
-              onClick={() => router.push('/login?callbackUrl=/admin/dashboard')}
+              onClick={() => router.push('/admin/login?callbackUrl=/admin/dashboard')}
               className="w-full bg-gradient-to-r from-amber-300 to-yellow-500 text-stone-950 font-extrabold uppercase tracking-widest text-[10px] py-3 rounded"
             >
               Sign In with Admin Credentials
