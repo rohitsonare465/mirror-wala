@@ -7,6 +7,17 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'mongodb',
   }),
+  baseURL: {
+    allowedHosts: [
+      'mirrorwala.com',
+      '*.mirrorwala.com',
+      'mirror-wala.vercel.app',
+      '*.vercel.app',
+      'localhost:3000',
+      'localhost:3001',
+    ],
+  },
+
   trustedOrigins: [
     'https://mirrorwala.com',
     'https://*.mirrorwala.com',
