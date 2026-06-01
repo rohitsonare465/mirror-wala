@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PublicLayout from '@/components/layout/PublicLayout';
 import CloudinaryImage from '@/components/common/CloudinaryImage';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Sparkles, SlidersHorizontal, ArrowRight, ArrowUpDown } from 'lucide-react';
+import { Sparkles, SlidersHorizontal, ArrowRight, ArrowUpDown, Loader2 } from 'lucide-react';
 
 const COLLECTIONS = [
   {
@@ -72,6 +72,65 @@ const COLLECTIONS = [
 
 export default function CollectionsPage() {
   const [filter, setFilter] = useState('ALL');
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch all products from dynamic database API
+  useEffect(() => {
+    setIsLoading(true);
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          // Map database products to the COLLECTIONS item schema
+          const mapped = json.data.map((dbProd: any) => {
+            const hasSale = dbProd.salePrice && dbProd.salePrice < dbProd.price;
+            const priceStr = hasSale
+              ? `₹${dbProd.salePrice.toLocaleString()}`
+              : `₹${dbProd.price.toLocaleString()}`;
+
+            // Group style categories for filtering
+            let styleGroup = 'BESPOKE';
+            const catName = dbProd.category?.name?.toUpperCase() || '';
+            const name = dbProd.name.toUpperCase();
+            if (catName.includes('LED') || name.includes('LED') || catName.includes('BATHROOM')) {
+              styleGroup = 'LED';
+            } else if (catName.includes('ART') || catName.includes('DESIGNER') || catName.includes('MOSAIC') || catName.includes('GOLD')) {
+              styleGroup = 'CLASSIC';
+            }
+
+            return {
+              id: dbProd.id,
+              name: dbProd.name,
+              slug: dbProd.slug,
+              description: dbProd.description,
+              image: dbProd.images && dbProd.images[0] ? dbProd.images[0] : '/images/logo.jpg',
+              priceRange: priceStr,
+              count: dbProd.category?.name || 'Luxury Mirror',
+              tag: dbProd.newArrival ? 'New' : dbProd.featured ? 'Featured' : 'Premium',
+              style: styleGroup
+            };
+          });
+          setProducts(mapped);
+        } else {
+          // Fallback to static mock products if database is empty or API fails
+          setProducts(COLLECTIONS.map(c => ({ ...c, style: c.id.includes('led') ? 'LED' : c.id.includes('gold') || c.id.includes('art') ? 'CLASSIC' : 'BESPOKE' })));
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch products:', err);
+        setProducts(COLLECTIONS.map(c => ({ ...c, style: c.id.includes('led') ? 'LED' : c.id.includes('gold') || c.id.includes('art') ? 'CLASSIC' : 'BESPOKE' })));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
+  // Filter products based on style category
+  const filteredProducts = products.filter(col => {
+    if (filter === 'ALL') return true;
+    return col.style === filter;
+  });
 
   return (
     <PublicLayout>
@@ -105,10 +164,7 @@ export default function CollectionsPage() {
                 key={style}
                 onClick={() => setFilter(style)}
                 className={`text-xs uppercase tracking-widest font-bold px-4 py-2 rounded transition-all duration-300 ${
-                  (style === 'ALL' && filter === 'ALL') ||
-                  (style === 'LED' && filter === 'LED') ||
-                  (style === 'CLASSIC' && filter === 'CLASSIC') ||
-                  (style === 'BESPOKE' && filter === 'BESPOKE')
+                  filter === style
                     ? 'bg-amber-400 text-stone-950 font-extrabold shadow-md shadow-amber-400/10'
                     : 'bg-stone-900 text-stone-300 border border-stone-850 hover:bg-stone-850 hover:text-amber-200'
                 }`}
@@ -126,65 +182,78 @@ export default function CollectionsPage() {
       </section>
 
       {/* Collections Grid */}
-      <section className="bg-stone-950 py-16">
+      <section className="bg-stone-950 py-16 min-h-[40vh]">
         <div className="container mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {COLLECTIONS.map((col, idx) => (
-              <motion.div
-                key={col.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: idx * 0.1 }}
-                className="group relative flex flex-col bg-stone-900/60 rounded border border-stone-850 overflow-hidden shadow-xl shadow-black/40 hover:border-amber-500/20 transition-all duration-500"
-              >
-                {/* Image Section */}
-                <div className="relative h-72 w-full overflow-hidden select-none">
-                  <CloudinaryImage
-                    src={col.image}
-                    alt={col.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/30 to-transparent" />
-                  <span className="absolute top-4 right-4 text-[9px] uppercase tracking-widest font-extrabold bg-gradient-to-r from-amber-300 to-amber-500 text-stone-950 px-2 py-0.5 rounded shadow">
-                    {col.tag}
-                  </span>
-                </div>
-
-                {/* Content Section */}
-                <div className="p-6 flex flex-col flex-1 justify-between gap-4">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold tracking-widest text-amber-300 uppercase">
-                      {col.count}
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Loader2 className="h-8 w-8 text-amber-300 animate-spin" />
+              <span className="text-xs text-stone-400 uppercase tracking-widest font-bold">Loading Atelier Showroom Catalog...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredProducts.map((col, idx) => (
+                <motion.div
+                  key={col.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: idx * 0.1 }}
+                  className="group relative flex flex-col bg-stone-900/60 rounded border border-stone-850 overflow-hidden shadow-xl shadow-black/40 hover:border-amber-500/20 transition-all duration-500"
+                >
+                  {/* Image Section */}
+                  <div className="relative h-72 w-full overflow-hidden select-none">
+                    <CloudinaryImage
+                      src={col.image}
+                      alt={col.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/30 to-transparent" />
+                    <span className="absolute top-4 right-4 text-[9px] uppercase tracking-widest font-extrabold bg-gradient-to-r from-amber-300 to-amber-500 text-stone-950 px-2 py-0.5 rounded shadow">
+                      {col.tag}
                     </span>
-                    <h3 className="font-serif text-xl sm:text-2xl font-bold text-white group-hover:text-amber-200 transition-colors duration-300">
-                      {col.name}
-                    </h3>
-                    <p className="text-xs text-stone-400 leading-relaxed font-sans">
-                      {col.description}
-                    </p>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-stone-850/60">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-widest text-stone-500 font-bold">Price range</span>
-                      <span className="text-xs font-bold text-stone-200">{col.priceRange}</span>
+                  {/* Content Section */}
+                  <div className="p-6 flex flex-col flex-1 justify-between gap-4">
+                    <div className="p-1 flex flex-col gap-2">
+                      <span className="text-[10px] font-bold tracking-widest text-amber-300 uppercase">
+                        {col.count}
+                      </span>
+                      <h3 className="font-serif text-xl sm:text-2xl font-bold text-white group-hover:text-amber-200 transition-colors duration-300">
+                        {col.name}
+                      </h3>
+                      <p className="text-xs text-stone-400 leading-relaxed font-sans truncate-3-lines">
+                        {col.description}
+                      </p>
                     </div>
 
-                    <Link
-                      href={`/products/${col.slug}`}
-                      className="flex items-center gap-1 text-xs uppercase tracking-widest font-extrabold text-amber-300 group-hover:text-white transition-colors duration-300"
-                    >
-                      <span>Explore</span>
-                      <ArrowRight className="h-3.5 w-3.5 transform group-hover:translate-x-1 transition-transform duration-300" />
-                    </Link>
+                    <div className="flex items-center justify-between pt-4 border-t border-stone-850/60">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] uppercase tracking-widest text-stone-500 font-bold">Price</span>
+                        <span className="text-xs font-bold text-stone-200">{col.priceRange}</span>
+                      </div>
+
+                      <Link
+                        href={`/products/${col.slug}`}
+                        className="flex items-center gap-1 text-xs uppercase tracking-widest font-extrabold text-amber-300 group-hover:text-white transition-colors duration-300"
+                      >
+                        <span>Explore</span>
+                        <ArrowRight className="h-3.5 w-3.5 transform group-hover:translate-x-1 transition-transform duration-300" />
+                      </Link>
+                    </div>
                   </div>
+                </motion.div>
+              ))}
+
+              {filteredProducts.length === 0 && (
+                <div className="col-span-full text-center py-20 text-xs text-stone-500 border border-dashed border-stone-850 rounded">
+                  No products found under this style category.
                 </div>
-              </motion.div>
-            ))}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
     </PublicLayout>

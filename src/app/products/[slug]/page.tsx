@@ -6,7 +6,7 @@ import CloudinaryImage from '@/components/common/CloudinaryImage';
 import ProductSchema from '@/components/seo/ProductSchema';
 import BreadcrumbSchema from '@/components/seo/BreadcrumbSchema';
 import { motion } from 'framer-motion';
-import { Sparkles, Heart, ShoppingBag, ShieldCheck, Truck, RefreshCw, Star, Info, MessageSquareCode } from 'lucide-react';
+import { Sparkles, Heart, ShoppingBag, ShieldCheck, Truck, RefreshCw, Star, Info, MessageSquareCode, Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Analytics } from '@/lib/analytics';
@@ -111,22 +111,71 @@ export default function ProductDetailPage() {
   const params = useParams();
   const slug = (params?.slug as string) || 'galaxy-mosaic-art-mirror';
   
-  // Resolve product or fallback to galaxy-mosaic-art-mirror
-  const product = PRODUCTS_REGISTRY[slug] || PRODUCTS_REGISTRY['galaxy-mosaic-art-mirror'];
+  const [product, setProduct] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Customize options states
   const [selectedSize, setSelectedSize] = useState('Standard (600x800mm)');
-  const [ledSetting, setLedSetting] = useState(product.LEDType !== 'NONE' ? 'Tri-color' : 'NONE');
+  const [ledSetting, setLedSetting] = useState('NONE');
   const [quantity, setQuantity] = useState(1);
   const [isWishlist, setIsWishlist] = useState(false);
-  const [activeImage, setActiveImage] = useState(product.images[0]);
+  const [activeImage, setActiveImage] = useState<string>('');
 
   const addItem = useCartStore((state) => state.addItem);
 
-  // Sync active image if slug changes
+  // Fetch product on load or slug change
+  useEffect(() => {
+    if (!slug) return;
+    
+    setIsLoading(true);
+    
+    // 1. Check if it's in our static registry first (instant load)
+    if (PRODUCTS_REGISTRY[slug]) {
+      setProduct(PRODUCTS_REGISTRY[slug]);
+      setIsLoading(false);
+      return;
+    }
+    
+    // 2. Otherwise, fetch it dynamically from the database API
+    fetch(`/api/products/${slug}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && json.data) {
+          const dbProd = json.data;
+          setProduct({
+            id: dbProd.id,
+            name: dbProd.name,
+            slug: dbProd.slug,
+            sku: dbProd.sku,
+            price: dbProd.price,
+            salePrice: dbProd.salePrice || null,
+            description: dbProd.description,
+            images: dbProd.images && dbProd.images.length > 0 ? dbProd.images : ['/images/logo.jpg'],
+            categoryName: dbProd.category?.name || 'Luxury Mirror',
+            stock: dbProd.stock ?? 10,
+            LEDType: dbProd.customizable ? 'Tri-Color Dimmable Premium LED' : 'NONE',
+            frameMaterial: dbProd.frameMaterial || 'Anodized Premium Metal Frame',
+            dimensions: dbProd.dimensions || 'Standard (600x800mm)',
+          });
+        } else {
+          // Fallback if not found in database
+          setProduct(PRODUCTS_REGISTRY['galaxy-mosaic-art-mirror']);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load product:', err);
+        setProduct(PRODUCTS_REGISTRY['galaxy-mosaic-art-mirror']);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [slug]);
+
+  // Sync state values when product resolves
   useEffect(() => {
     if (product) {
-      setActiveImage(product.images[0]);
+      setActiveImage(product.images?.[0] || '');
+      setLedSetting(product.LEDType !== 'NONE' ? 'Tri-color' : 'NONE');
     }
   }, [product]);
 
@@ -147,12 +196,13 @@ export default function ProductDetailPage() {
   const isPremiumSize = selectedSize.includes('Premium Grand') || selectedSize.includes('800x1200mm') || selectedSize.includes('Grand');
   const sizePremium = isPremiumSize ? 4000 : 0;
   
-  const basePrice = product.price + sizePremium;
-  const baseSalePrice = product.salePrice ? product.salePrice + sizePremium : null;
+  const basePrice = product ? product.price + sizePremium : 0;
+  const baseSalePrice = product && product.salePrice ? product.salePrice + sizePremium : null;
   const finalUnitPrice = baseSalePrice ?? basePrice;
 
   // Build the unified cart item payload
   const getCartItemPayload = () => {
+    if (!product) return null;
     return {
       id: `${product.id}-${selectedSize.replace(/\s+/g, '-')}-${ledSetting}`,
       productId: product.id,
@@ -195,6 +245,10 @@ export default function ProductDetailPage() {
   };
 
   const handleAddToCart = () => {
+    if (!product) return;
+    const payload = getCartItemPayload();
+    if (!payload) return;
+    
     // Add to cart track call
     Analytics.trackAddToCart({
       id: product.id,
@@ -205,13 +259,17 @@ export default function ProductDetailPage() {
     }, quantity);
     
     // Add to Zustand cart store
-    addItem(getCartItemPayload());
+    addItem(payload);
     
     // Redirect to cart
     router.push('/cart');
   };
 
   const handleBuyNow = () => {
+    if (!product) return;
+    const payload = getCartItemPayload();
+    if (!payload) return;
+    
     // Track Buy Now
     Analytics.trackAddToCart({
       id: product.id,
@@ -222,17 +280,31 @@ export default function ProductDetailPage() {
     }, quantity);
 
     // Add item to Zustand store
-    addItem(getCartItemPayload());
+    addItem(payload);
 
     // Redirect straight to Checkout
     router.push('/checkout');
   };
 
   const handleWhatsAppOrder = () => {
+    if (!product) return;
     const textMessage = `Hello Mirrorwala, I want to order the "${product.name}" in size: ${selectedSize} and LED glow: ${ledSetting}. Please share billing details.`;
     const whatsappUrl = `https://wa.me/919826258430?text=${encodeURIComponent(textMessage)}`;
     window.open(whatsappUrl, '_blank');
   };
+
+  if (isLoading || !product) {
+    return (
+      <PublicLayout>
+        <section className="bg-stone-950 min-h-[80vh] flex items-center justify-center text-stone-400 font-sans text-xs">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-7 w-7 text-amber-300 animate-spin" />
+            <span className="uppercase tracking-widest text-[10px] font-bold text-stone-400">Loading Showroom Details...</span>
+          </div>
+        </section>
+      </PublicLayout>
+    );
+  }
 
   return (
     <PublicLayout>
