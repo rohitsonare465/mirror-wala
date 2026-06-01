@@ -8,6 +8,7 @@ interface CartState {
   coupon: Coupon | null;
   shippingCharges: number;
   taxRate: number; // e.g. 0.18 for 18% GST in India
+  isGuest: boolean;
   
   // Actions
   addItem: (item: Omit<CartItem, 'totalPrice'>) => void;
@@ -18,6 +19,7 @@ interface CartState {
   clearCart: () => void;
   syncWithDatabase: () => Promise<void>;
   mergeGuestCart: () => Promise<void>;
+  setGuestMode: (isGuest: boolean) => void;
   
   // Selectors/Computed values
   getSubtotal: () => number;
@@ -108,6 +110,15 @@ export const useCartStore = create<CartState>()(
       coupon: null,
       shippingCharges: 0,
       taxRate: 0.18, // 18% standard GST for glass/mirrors in India
+      isGuest: true,
+
+      setGuestMode: (isGuest) => {
+        if (isGuest) {
+          set({ items: [], coupon: null, isGuest: true });
+        } else {
+          set({ isGuest: false });
+        }
+      },
 
       addItem: (item) => {
         set((state) => {
@@ -249,7 +260,7 @@ export const useCartStore = create<CartState>()(
             if (json.success && json.data) {
               const dbItems = json.data.items || [];
               const mappedItems = dbItems.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
-              set({ items: mappedItems });
+              set({ items: mappedItems, isGuest: false });
             }
           }
         } catch (error) {
@@ -261,8 +272,11 @@ export const useCartStore = create<CartState>()(
         try {
           const sessionRes = await authClient.getSession();
           if (sessionRes?.data?.user) {
-            const { items } = get();
-            if (items.length > 0) {
+            const { items, isGuest } = get();
+            if (isGuest && items.length > 0) {
+              // Immediately toggle isGuest to false to prevent duplicate trigger while in-flight
+              set({ isGuest: false });
+              
               const res = await fetch('/api/cart/merge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -278,13 +292,19 @@ export const useCartStore = create<CartState>()(
               if (json.success && json.data) {
                 const dbItems = json.data.items || [];
                 const mappedItems = dbItems.map(mapDbCartItemToZustand).filter((item: CartItem | null): item is CartItem => item !== null);
-                set({ items: mappedItems, coupon: null });
+                set({ items: mappedItems, coupon: null, isGuest: false });
+              } else {
+                // If merge failed on server, revert isGuest to true so we can retry
+                set({ isGuest: true });
               }
             } else {
               await get().syncWithDatabase();
+              set({ isGuest: false });
             }
           }
         } catch (error) {
+          // Revert isGuest to true in case of network failure
+          set({ isGuest: true });
           console.error('Failed to merge guest cart:', error);
         }
       },
@@ -327,6 +347,7 @@ export const useCartStore = create<CartState>()(
         items: state.items,
         coupon: state.coupon,
         shippingCharges: state.shippingCharges,
+        isGuest: state.isGuest,
       }),
     }
   )

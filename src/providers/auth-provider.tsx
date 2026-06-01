@@ -17,13 +17,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data, isPending, refetch } = authClient.useSession();
   const mergeGuestCart = useCartStore((state) => state.mergeGuestCart);
+  const setGuestMode = useCartStore((state) => state.setGuestMode);
 
   useEffect(() => {
-    if (!isPending && data?.user) {
-      // Trigger guest cart merge when session is active
-      mergeGuestCart();
+    if (!isPending) {
+      if (data?.user) {
+        // Trigger guest cart merge when session is active
+        mergeGuestCart();
+      } else {
+        // If there's no active session, ensure local store is in guest mode
+        const isGuest = useCartStore.getState().isGuest;
+        if (!isGuest) {
+          setGuestMode(true);
+        }
+      }
     }
-  }, [data, isPending, mergeGuestCart]);
+  }, [data, isPending, mergeGuestCart, setGuestMode]);
 
   return (
     <AuthContext.Provider value={{ session: data, isPending, refetch }}>
